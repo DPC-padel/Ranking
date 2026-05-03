@@ -1,4 +1,4 @@
-const CACHE_TTL = 6 * 60 * 60 * 1000;
+const CACHE_TTL = 24 * 60 * 60 * 1000;
 const MASTER_CACHE_KEY = "dpcRankingCache:all-pages";
 const CACHE_SCHEMA_VERSION = 4;
 const ADMIN_STORAGE_KEY = "dpcRankingAdmin";
