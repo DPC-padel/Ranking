@@ -1,6 +1,6 @@
-const CACHE_TTL = 24 * 60 * 60 * 1000;
+const CACHE_TTL = 6 * 60 * 60 * 1000;
 const MASTER_CACHE_KEY = "dpcRankingCache:all-pages";
-const CACHE_SCHEMA_VERSION = 3;
+const CACHE_SCHEMA_VERSION = 4;
 const ADMIN_STORAGE_KEY = "dpcRankingAdmin";
 const ADMIN_QUERY_KEY = "admin";
 const ADMIN_QUERY_VALUE = "1";
@@ -37,9 +37,14 @@ const elements = {
   refreshButton: document.getElementById("refreshButton"),
   pageSelector: document.getElementById("pageSelector"),
   rankingBody: document.getElementById("rankingBody"),
+  personalRankingBody: document.getElementById("personalRankingBody"),
   overallRankingBody: document.getElementById("overallRankingBody"),
   tournamentRankingBody: document.getElementById("tournamentRankingBody"),
   americanoRankingBody: document.getElementById("americanoRankingBody"),
+  firstServeOverallTab: document.getElementById("firstServeOverallTab"),
+  firstServePersonalTab: document.getElementById("firstServePersonalTab"),
+  firstServeOverallPanel: document.getElementById("firstServeOverallPanel"),
+  firstServePersonalPanel: document.getElementById("firstServePersonalPanel"),
   overallTab: document.getElementById("overallTab"),
   tournamentTab: document.getElementById("tournamentTab"),
   americanoTab: document.getElementById("americanoTab"),
@@ -51,6 +56,7 @@ const elements = {
 document.addEventListener("DOMContentLoaded", () => {
   initPageSelector();
   initAdminMode();
+  initFirstServeTabs();
   initBreakPointTabs();
 
   elements.refreshButton?.addEventListener("click", () => config?.loader(true));
@@ -91,16 +97,19 @@ async function loadFirstServePage(isManualRefresh) {
   try {
     const data = await getAllRankingsData(isManualRefresh);
     const rankings = normalizeBasicRankings(data.firstServe);
+    const personalGamesRankings = normalizeBasicRankings(data.firstServePersonal);
 
-    if (!rankings.length) {
+    if (!rankings.length && !personalGamesRankings.length) {
       throw new Error("No ranking entries were found.");
     }
 
     renderBasicTable(elements.rankingBody, rankings, 4);
+    renderBasicTable(elements.personalRankingBody, personalGamesRankings, 4, "No personal games entries yet.");
     updateStatus("");
   } catch (error) {
     console.error("Failed to load First Serve rankings:", error);
     renderMessageRow(elements.rankingBody, "Leaderboard data is not available right now.", 4);
+    renderMessageRow(elements.personalRankingBody, "Personal games leaderboard is not available right now.", 4);
     updateStatus("Could not load the live leaderboard right now.", true);
   } finally {
     setLoadingState(false);
@@ -196,6 +205,7 @@ async function fetchAllRankingsData() {
 
   return {
     firstServe: firstServe.firstServe || [],
+    firstServePersonal: firstServe.pmMatchScores || [],
     breakPointOverall: breakPointData.breakPointOverall || [],
     breakPointTournament: breakPointData.breakPointTournament || [],
     breakPointAmericano: breakPointData.breakPointAmericano || [],
@@ -377,13 +387,13 @@ function compareByScore(left, right) {
   return left.name.localeCompare(right.name);
 }
 
-function renderBasicTable(target, rankings, colspan) {
+function renderBasicTable(target, rankings, colspan, emptyMessage = "No ranking entries yet.") {
   if (!target) {
     return;
   }
 
   if (!rankings.length) {
-    renderMessageRow(target, "No ranking entries yet.", colspan);
+    renderMessageRow(target, emptyMessage, colspan);
     return;
   }
 
@@ -512,6 +522,39 @@ function initBreakPointTabs() {
   elements.tournamentTab.addEventListener("click", () => setBreakPointTab("tournament"));
   elements.americanoTab.addEventListener("click", () => setBreakPointTab("americano"));
   setBreakPointTab("overall");
+}
+
+function initFirstServeTabs() {
+  if (page !== "first-serve" || !elements.firstServeOverallTab || !elements.firstServePersonalTab) {
+    return;
+  }
+
+  elements.firstServeOverallTab.addEventListener("click", () => setFirstServeTab("overall"));
+  elements.firstServePersonalTab.addEventListener("click", () => setFirstServeTab("personal"));
+  setFirstServeTab("overall");
+}
+
+function setFirstServeTab(tabName) {
+  if (
+    !elements.firstServeOverallTab ||
+    !elements.firstServePersonalTab ||
+    !elements.firstServeOverallPanel ||
+    !elements.firstServePersonalPanel
+  ) {
+    return;
+  }
+
+  const isOverall = tabName === "overall";
+  const isPersonal = tabName === "personal";
+
+  elements.firstServeOverallTab.classList.toggle("is-active", isOverall);
+  elements.firstServePersonalTab.classList.toggle("is-active", isPersonal);
+  elements.firstServeOverallTab.setAttribute("aria-selected", String(isOverall));
+  elements.firstServePersonalTab.setAttribute("aria-selected", String(isPersonal));
+  elements.firstServeOverallPanel.hidden = !isOverall;
+  elements.firstServePersonalPanel.hidden = !isPersonal;
+  elements.firstServeOverallPanel.classList.toggle("panel-hidden", !isOverall);
+  elements.firstServePersonalPanel.classList.toggle("panel-hidden", !isPersonal);
 }
 
 function setBreakPointTab(tabName) {
