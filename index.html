@@ -15,7 +15,7 @@
     <section class="leaderboard-card">
       <header class="topbar">
         <div class="brand-lockup">
-          <img class="brand-logo" src="dpc-logo.svg" alt="Delhi Padel Collective logo">
+          <img class="brand-logo" src="assets/dpc-logo.svg" alt="Delhi Padel Collective logo">
         </div>
 
         <div class="topbar-tools">
@@ -41,7 +41,7 @@
         </div>
       </section>
 
-      <section class="standings-section">
+      <section class="standings-section stacked-sections">
         <div class="standings-head">
           <div>
             <p class="section-kicker">Overall Standings</p>
@@ -49,25 +49,64 @@
           <button id="refreshButton" class="refresh-button" type="button" hidden>Refresh</button>
         </div>
 
+        <div class="tab-switcher" role="tablist" aria-label="First Serve ranking types">
+          <button id="firstServeOverallTab" class="tab-button is-active" type="button" data-tab="overall" role="tab" aria-selected="true">
+            Overall Ranking
+          </button>
+          <button id="firstServePersonalTab" class="tab-button" type="button" data-tab="personal" role="tab" aria-selected="false">
+            Personal Games
+          </button>
+        </div>
+
         <div id="statusMessage" class="status-message" aria-live="polite"></div>
 
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th class="rank-col">#</th>
-                <th>Player</th>
-                <th>MP</th>
-                <th>PTS</th>
-              </tr>
-            </thead>
-            <tbody id="rankingBody">
-              <tr>
-                <td colspan="4">Loading leaderboard...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <section id="firstServeOverallPanel" class="subsection" role="tabpanel" aria-labelledby="firstServeOverallTab">
+          <div class="subsection-head">
+            <h2>Overall Ranking</h2>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="rank-col">#</th>
+                  <th>Player</th>
+                  <th>MP</th>
+                  <th>PTS</th>
+                </tr>
+              </thead>
+              <tbody id="rankingBody">
+                <tr>
+                  <td colspan="4">Loading leaderboard...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="firstServePersonalPanel" class="subsection panel-hidden" role="tabpanel" aria-labelledby="firstServePersonalTab" hidden>
+          <div class="subsection-head">
+            <h2>Personal Games</h2>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="rank-col">#</th>
+                  <th>Player</th>
+                  <th>MP</th>
+                  <th>PTS</th>
+                </tr>
+              </thead>
+              <tbody id="personalRankingBody">
+                <tr>
+                  <td colspan="4">Loading personal games leaderboard...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
       <footer class="card-footer">
