@@ -15,7 +15,7 @@
     <section class="leaderboard-card">
       <header class="topbar">
         <div class="brand-lockup">
-          <img class="brand-logo" src="dpc-green-logo.svg" alt="Delhi Padel Collective logo">
+          <img class="brand-logo" src="dpc-logo.svg" alt="Delhi Padel Collective logo">
         </div>
 
         <div class="topbar-tools">
@@ -50,10 +50,10 @@
         </div>
 
         <div class="tab-switcher" role="tablist" aria-label="First Serve ranking types">
-          <button id="firstServeOverallTab" class="tab-button is-active" type="button" data-tab="overall" role="tab" aria-selected="true">
+          <button id="firstServeOverallTab" class="tab-button is-active" type="button" data-tab="overall" role="tab" aria-selected="true" onclick="setFirstServeTab('overall')">
             Americano
           </button>
-          <button id="firstServePersonalTab" class="tab-button" type="button" data-tab="personal" role="tab" aria-selected="false">
+          <button id="firstServePersonalTab" class="tab-button" type="button" data-tab="personal" role="tab" aria-selected="false" onclick="setFirstServeTab('personal')">
             Personal Games
           </button>
         </div>
