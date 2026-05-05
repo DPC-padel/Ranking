@@ -1,6 +1,6 @@
-const CACHE_TTL = 24 * 60 * 60 * 1000;
+const CACHE_TTL = 2 * 60 * 60 * 1000;
 const MASTER_CACHE_KEY = "dpcRankingCache:all-pages";
-const CACHE_SCHEMA_VERSION = 4;
+const CACHE_SCHEMA_VERSION = 5;
 const ADMIN_STORAGE_KEY = "dpcRankingAdmin";
 const ADMIN_QUERY_KEY = "admin";
 const ADMIN_QUERY_VALUE = "1";
@@ -37,12 +37,15 @@ const elements = {
   refreshButton: document.getElementById("refreshButton"),
   pageSelector: document.getElementById("pageSelector"),
   rankingBody: document.getElementById("rankingBody"),
+  firstServeRankingBody: document.getElementById("firstServeRankingBody"),
   personalRankingBody: document.getElementById("personalRankingBody"),
   overallRankingBody: document.getElementById("overallRankingBody"),
   tournamentRankingBody: document.getElementById("tournamentRankingBody"),
   americanoRankingBody: document.getElementById("americanoRankingBody"),
+  firstServeRankingTab: document.getElementById("firstServeRankingTab"),
   firstServeOverallTab: document.getElementById("firstServeOverallTab"),
   firstServePersonalTab: document.getElementById("firstServePersonalTab"),
+  firstServeRankingPanel: document.getElementById("firstServeRankingPanel"),
   firstServeOverallPanel: document.getElementById("firstServeOverallPanel"),
   firstServePersonalPanel: document.getElementById("firstServePersonalPanel"),
   overallTab: document.getElementById("overallTab"),
@@ -96,20 +99,23 @@ async function loadFirstServePage(isManualRefresh) {
 
   try {
     const data = await getAllRankingsData(isManualRefresh);
+    const overallRankings = normalizeFlexibleOverallRankings(data.firstServeRanking);
     const rankings = normalizeBasicRankings(data.firstServe);
     const personalGamesRankings = normalizeBasicRankings(data.firstServePersonal);
 
-    if (!rankings.length && !personalGamesRankings.length) {
+    if (!overallRankings.length && !rankings.length && !personalGamesRankings.length) {
       throw new Error("No ranking entries were found.");
     }
 
+    renderOverallTable(elements.firstServeRankingBody, overallRankings, 4);
     renderBasicTable(elements.rankingBody, rankings, 4);
-    renderBasicTable(elements.personalRankingBody, personalGamesRankings, 4, "No personal games entries yet.");
+    renderBasicTable(elements.personalRankingBody, personalGamesRankings, 4, "No personal matches entries yet.");
     updateStatus("");
   } catch (error) {
     console.error("Failed to load First Serve rankings:", error);
+    renderMessageRow(elements.firstServeRankingBody, "Ranking data is not available right now.", 4);
     renderMessageRow(elements.rankingBody, "Leaderboard data is not available right now.", 4);
-    renderMessageRow(elements.personalRankingBody, "Personal games leaderboard is not available right now.", 4);
+    renderMessageRow(elements.personalRankingBody, "Personal matches leaderboard is not available right now.", 4);
     updateStatus("Could not load the live leaderboard right now.", true);
   } finally {
     setLoadingState(false);
@@ -183,13 +189,7 @@ async function getAllRankingsData(forceRefresh = false) {
 }
 
 async function fetchAllRankingsData() {
-  const firstServeResponse = await fetch(API_URLS.firstServe);
-  if (!firstServeResponse.ok) {
-    throw new Error("Failed to fetch First Serve data");
-  }
-  const firstServe = await firstServeResponse.json();
-
-  console.log("RAW:", firstServe);  // ADD THIS
+  const firstServe = await fetchJson(API_URLS.firstServe);
 
   const breakPointResponse = await fetch(API_URLS.breakPoint);
   if (!breakPointResponse.ok) {
@@ -206,6 +206,7 @@ async function fetchAllRankingsData() {
   return {
     firstServe: firstServe.firstServe || [],
     firstServePersonal: firstServe.pmMatchScores || [],
+    firstServeRanking: pickFirstServeRankingRows(firstServe),
     breakPointOverall: breakPointData.breakPointOverall || [],
     breakPointTournament: breakPointData.breakPointTournament || [],
     breakPointAmericano: breakPointData.breakPointAmericano || [],
@@ -316,6 +317,42 @@ function normalizeOverallRankings(rows) {
       name: String(row.Name || "").trim(),
       score: toNumber(row.Score),
       rating: toDecimal(row.Rating)
+    }))
+    .filter((player) => player.name && !player.name.startsWith("#"))
+    .sort((left, right) => {
+      if (right.rating !== left.rating) {
+        return right.rating - left.rating;
+      }
+
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+
+  let lastRating = null;
+  let lastRank = 0;
+
+  return sorted.map((player, index) => {
+    const rank = player.rating === lastRating ? lastRank : index + 1;
+    lastRating = player.rating;
+    lastRank = rank;
+
+    return {
+      ...player,
+      rank
+    };
+  });
+}
+
+function normalizeFlexibleOverallRankings(rows) {
+  const sorted = rows
+    .map((row) => ({
+      id: String(row.ID || row["Player ID"] || row.playerId || "").trim(),
+      name: String(row.Name || row["Player Name"] || row.playerName || "").trim(),
+      score: toNumber(row.Score || row.score),
+      rating: toDecimal(row.Rating || row.rating)
     }))
     .filter((player) => player.name && !player.name.startsWith("#"))
     .sort((left, right) => {
@@ -525,34 +562,47 @@ function initBreakPointTabs() {
 }
 
 function initFirstServeTabs() {
-  if (page !== "first-serve" || !elements.firstServeOverallTab || !elements.firstServePersonalTab) {
+  if (
+    page !== "first-serve" ||
+    !elements.firstServeRankingTab ||
+    !elements.firstServeOverallTab ||
+    !elements.firstServePersonalTab
+  ) {
     return;
   }
 
+  elements.firstServeRankingTab.addEventListener("click", () => setFirstServeTab("ranking"));
   elements.firstServeOverallTab.addEventListener("click", () => setFirstServeTab("overall"));
   elements.firstServePersonalTab.addEventListener("click", () => setFirstServeTab("personal"));
-  setFirstServeTab("overall");
+  setFirstServeTab("ranking");
 }
 
 function setFirstServeTab(tabName) {
   if (
+    !elements.firstServeRankingTab ||
     !elements.firstServeOverallTab ||
     !elements.firstServePersonalTab ||
+    !elements.firstServeRankingPanel ||
     !elements.firstServeOverallPanel ||
     !elements.firstServePersonalPanel
   ) {
     return;
   }
 
+  const isRanking = tabName === "ranking";
   const isOverall = tabName === "overall";
   const isPersonal = tabName === "personal";
 
+  elements.firstServeRankingTab.classList.toggle("is-active", isRanking);
   elements.firstServeOverallTab.classList.toggle("is-active", isOverall);
   elements.firstServePersonalTab.classList.toggle("is-active", isPersonal);
+  elements.firstServeRankingTab.setAttribute("aria-selected", String(isRanking));
   elements.firstServeOverallTab.setAttribute("aria-selected", String(isOverall));
   elements.firstServePersonalTab.setAttribute("aria-selected", String(isPersonal));
+  elements.firstServeRankingPanel.hidden = !isRanking;
   elements.firstServeOverallPanel.hidden = !isOverall;
   elements.firstServePersonalPanel.hidden = !isPersonal;
+  elements.firstServeRankingPanel.classList.toggle("panel-hidden", !isRanking);
   elements.firstServeOverallPanel.classList.toggle("panel-hidden", !isOverall);
   elements.firstServePersonalPanel.classList.toggle("panel-hidden", !isPersonal);
 }
@@ -604,4 +654,48 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function pickFirstServeRankingRows(firstServeData) {
+  const preferredKeys = [
+    "overallRanking",
+    "overallRankings",
+    "ranking",
+    "rankings",
+    "finalScore",
+    "finalScores",
+    "scoreRating",
+    "scoreRatings"
+  ];
+
+  for (const key of preferredKeys) {
+    if (Array.isArray(firstServeData[key])) {
+      return firstServeData[key];
+    }
+  }
+
+  for (const [key, value] of Object.entries(firstServeData)) {
+    if (!Array.isArray(value) || key === "firstServe" || key === "pmMatchScores") {
+      continue;
+    }
+
+    const firstRow = value.find((row) => row && typeof row === "object");
+
+    if (!firstRow) {
+      continue;
+    }
+
+    const hasRating = "Rating" in firstRow || "rating" in firstRow;
+    const hasScore = "Score" in firstRow || "score" in firstRow;
+    const hasName =
+      "Name" in firstRow ||
+      "Player Name" in firstRow ||
+      "playerName" in firstRow;
+
+    if (hasRating && hasScore && hasName) {
+      return value;
+    }
+  }
+
+  return [];
 }
